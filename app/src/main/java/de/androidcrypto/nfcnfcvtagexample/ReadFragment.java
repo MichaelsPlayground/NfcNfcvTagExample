@@ -33,6 +33,7 @@ import androidx.fragment.app.Fragment;
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -475,7 +476,8 @@ public class ReadFragment extends Fragment implements NfcAdapter.ReaderCallback 
             sb.append("Tag Techlist: ").append(Arrays.toString(techList)).append("\n");
             sb.append("dsfId: ").append(dsfId).append("\n");
             sb.append("responseFlags: ").append(responseFlags).append("\n");
-            sb.append("maxTranceiveLength: ").append(maxTranceiveLength);
+            sb.append("maxTranceiveLength: ").append(maxTranceiveLength).append("\n");
+            sb.append("card number: " + getCardIdFromTagId(tagId));
             writeToUiAppend(sb.toString());
 
             // now we are running the getInformation command
@@ -517,26 +519,53 @@ public class ReadFragment extends Fragment implements NfcAdapter.ReaderCallback 
             if (numberOfBlocks > 0) {
                 // reserve the memory
                 byte[] completeContent = new byte[totalMemorySize];
+                boolean[] readError = new boolean[numberOfBlocks];
+                byte[] errorBlock = new byte[]{(byte) 0x88, (byte) 0x88, (byte) 0x88, (byte) 0x88};
                 for (int blockNumber = 0; blockNumber < numberOfBlocks; blockNumber++) {
                     byte[] blockRead = readOneBlock(nfcV, tagId, blockNumber);
                     if (blockRead != null) {
+                        readError[blockNumber] = false;
                         // copy the new bytes to responseComplete
                         System.arraycopy(blockRead, 0, completeContent, (blockNumber * bytesInBlock), bytesInBlock);
                         writeToUiAppend("processing block: " + blockNumber);
                         //String dumpBlock = HexDumpOwn.prettyPrint(responseBlock, 16);
                         //writeToUiAppend(readResult, dumpBlock);
                     } else {
+                        readError[blockNumber] = true;
+                        System.arraycopy(errorBlock, 0, completeContent, (blockNumber * bytesInBlock), bytesInBlock);
                         writeToUiAppend("error on reading block " + blockNumber);
                     }
+                } // for (int blockNumber = 0; blockNumber < numberOfBlocks; blockNumber++) {
+                // now completeContent holds the data
+                DumpHexData.contentLoaded = completeContent.clone();
+                int contentLoadedLength = completeContent.length;
+                //writeToUiAppend(readResult, "contentLoaded length: " + contentLoadedLength);
+                // processing in 8 byte chunks
+                int CHUNK_SIZE = 8;
+                int completeRounds = contentLoadedLength / CHUNK_SIZE;
+                //writeToUiAppend(readResult, "completeRounds (each 8 byte): " + completeRounds);
+                int lastBytes = contentLoadedLength - (completeRounds * CHUNK_SIZE);
+                sb = new StringBuilder();
+                sb.append("addr| data                   | ASCII").append("\n");
+                for (int part = 0; part < completeRounds; part++) {
+                    byte[] chunkPart = DumpHexData.get8ByteChunk(part);
+                    //System.out.println("part " + part + " : " + bytesToHex(chunkPart));
+                    //sb.append(hexPrint((part * CHUNK_SIZE), chunkPart)).append("\n");
+                    String chunkString = removeHeading4Bytes(DumpHexData.hexPrint((part * CHUNK_SIZE), chunkPart));
+                    sb.append(chunkString).append("\n");
+
+                    //writeToUiAppend(readResult, chunkString);
 
                 }
-
-
+                if (lastBytes > 0) {
+                    byte[] lastChunkPart = DumpHexData.getLastByteChunk(completeRounds, lastBytes);
+                    //System.out.println("part " + completeRounds + " : " + bytesToHex(lastChunkPart));
+                    String chunkString = removeHeading4Bytes(DumpHexData.hexPrint((completeRounds * CHUNK_SIZE), lastChunkPart));
+                    sb.append(chunkString).append("\n");
+                }
+                final String completeString = sb.toString();
+                writeToUiAppend(completeString);
             }
-
-
-
-
 
 
 /*
@@ -564,208 +593,28 @@ data: 000fc8504121662416e00200330302
 
 
 
-
-
-
-
-        MifareUltralight mfu = MifareUltralight.get(tag);
-
-        if (mfu == null) {
-            writeToUiAppend("The tag is not readable with Mifare Ultralight classes, sorry");
-            writeToUiFinal(readResult);
-            setLoadingLayoutVisibility(false);
-            return;
-        }
-
-        // get card details
-        int tagType = mfu.getType();
-        StringBuilder sb = new StringBuilder();
-        sb.append("MifareUltralight type: ").append(tagType).append("\n");
-        byte[] id = mfu.getTag().getId();
-        sb.append("Tag ID: ").append(bytesToHexNpe(id)).append("\n");
-        String[] techlist = mfu.getTag().getTechList();
-        sb.append("Tag Techlist: ").append(Arrays.toString(techlist));
-        writeToUiAppend(sb.toString());
-
-        // go through all sectors
-        try {
-            mfu.connect();
-
-            if (mfu.isConnected()) {
-
-                // we are trying to read 48 pages (maximum for Ultralight-C) although Ultralight and Ultralight EV-1 are smaller
-                pagesToRead = 15;
-                pagesComplete = new byte[pagesToRead][];
-                for (int i = 0; i < pagesToRead; i++) {
-                    pagesComplete[i] = readPageMifareUltralight(mfu, i);
-                    writeToUiAppend(printData("page " + i, pagesComplete[i]));
-                }
-
-                byte[] counter0B = getCounter(mfu, 0);
-                byte[] counter1B = getCounter(mfu, 1);
-                byte[] counter2B = getCounter(mfu, 2);
-                writeToUiAppend(printData("counter0", counter0B));
-                writeToUiAppend(printData("counter1", counter1B));
-                writeToUiAppend(printData("counter2", counter2B));
-
-                // 425245414b4d454946594f5543414e21
-                byte[] defaultKey = hexStringToByteArray("425245414b4d454946594f5543414e21"); // "BREAKMEIFYOUCAN!", 16 bytes long
-                byte[] defaultKeyZero = hexStringToByteArray("00000000000000000000000000000000"); // "..zeroes...", 16 bytes long
-                // NXP default key: BREAKMEIFYOUCAN! (16 bytes)
-                byte[] mifareULCDefaultKey = { (byte) 0x49, (byte) 0x45,
-                        (byte) 0x4D, (byte) 0x4B, (byte) 0x41, (byte) 0x45,
-                        (byte) 0x52, (byte) 0x42, (byte) 0x21, (byte) 0x4E,
-                        (byte) 0x41, (byte) 0x43, (byte) 0x55, (byte) 0x4F,
-                        (byte) 0x59, (byte) 0x46 };
-
-                /**
-                 * auth method from nfclib start
-                 */
-                reconnect(mfu);
-                writeToUiAppend("auth from nfcLib");
-                boolean authSuccessNfcLib = authenticateNfcLib(mfu, mifareULCDefaultKey);
-                writeToUiAppend("authSuccessNfcLib: " + authSuccessNfcLib);
-
-
-                /**
-                 * auth method from nfclib end
-                 */
-
-                reconnect(mfu);
-                byte[] keyFromUid = new byte[16];
-                System.arraycopy(id, 0, keyFromUid, 0 , id.length);
-
-                writeToUiAppend("auth from SO");
-                try {
-                    authenticate(mfu, mifareULCDefaultKey);
-                } catch (Exception e) {
-                    //throw new RuntimeException(e);
-                    // this is just an advice - if an error occurs - close the connection and reconnect the tag
-                    // https://stackoverflow.com/a/37047375/8166854
-                    try {
-                        mfu.close();
-                    } catch (Exception e1) {
-                    }
-                    try {
-                        mfu.connect();
-                    } catch (Exception e2) {
-                    }
-                }
-                byte[] page04 = readPageMifareUltralight(mfu, 04);
-                writeToUiAppend(printData("page04", page04));
-
-
-                // https://stackoverflow.com/questions/45545493/distinguish-different-types-of-mifare-ultralight
-                // https://stackoverflow.com/questions/37002498/distinguish-ntag213-from-mf0icu2
-                /*
-In order to distinguish MIFARE Ultralight, Ultralight C, Ultralight EV1, and NTAG tags, you would first send a GET_VERSION command:
-
-> 60
-If this command succeeds, you know that the tag is an EV1 (or later) tag (e.g. MIFARE Ultralight EV1
-or NTAG21x). You can, thus, narrow down the specific tag type by analyzing the resonse to the GET_VERSION command.
-This will reveal the product type (NTAG or Ultralight EV1) as well as product subtype, product version and storage
-size (which allows you to determine the exact chip type). See Distinguish NTAG213 from MF0ICU2 for a list of example
-product identification values.
-
-If the GET_VERSION command fails, you can assume that it is a first generation tag (MIFARE Ultralight, Ultralight C,
-NTAG203). You can, thus, narrow down the specific tag type by sending an AUTHENTICATE (part 1) command:
-
-> 1A 00
-If this command succeeds, you know that the tag is MIFARE Ultralight C.
-
-If this command fails, you can assume that the tag is either Ultralight or NTAG203. In order to distinguish between
-MIFARE Ultralight and NTAG203, you can try to read pages that do not exist on Ultralight (e.g. read page 41):
-
-> 30 29
-Share
-Edit
-Follow
-Flag
-answered Aug 11, 2017 at 11:08
-Michael Roland's user avatar
-Michael Roland
-                 */
-                int storageSize = 0;
-                isUltralight = false;
-                isUltralightC = false;
-                isUltralightEv1 = false;
-
-                // checks for distinguishing the correct type of card
-                byte[] getVersionResp = getVersion(mfu);
-                byte[] doAuthResp = doAuthenticate(mfu);
-                writeToUiAppend(printData("getVersionResp", getVersionResp));
-                writeToUiAppend(printData("doAuthResp", doAuthResp));
-
-                // if getVersionResponse is not null it is an Ultralight EV1 or later
-                if (getVersionResp != null) {
-                    isUltralightEv1 = true;
-                    // storage size is in byte 6, 0b or 0e
-                    if (getVersionResp[6] == (byte) 0x0b) {
-                        storageSize = 64; // 48 bytes user memory
-                        pagesToRead = storageSize / 4;
-                    }
-                    if (getVersionResp[6] == (byte) 0x0e) {
-                        storageSize = 144; // 128 bytes user memory
-                        pagesToRead = storageSize / 4;
-                    }
-                    Log.d(TAG, "Tag is a Mifare Ultralight EV1 with a storage size of " + storageSize + " bytes");
-                } else {
-                    // now we are checking if getVersionResponse is not null meaning an Ultralight-C tag
-                    if (doAuthResp != null) {
-                        isUltralightC = true;
-                        storageSize = 192;
-                        pagesToRead = storageSize / 4;
-                        Log.d(TAG, "Tag is a Mifare Ultralight-C with a storage size of " + storageSize + " bytes");
-                    } else {
-                        // the tag is an Ultralight tag
-                        isUltralight = true;
-                        storageSize = 64;
-                        pagesToRead = storageSize / 4;
-                        Log.d(TAG, "Tag is a Mifare Ultralight with a storage size of " + storageSize + " bytes");
-                    }
-                }
-
-                // tag identification
-                if (isUltralight) {
-                    writeToUiAppend("The tag is a Mifare Ultralight tag with a storage size of " + storageSize + " bytes");
-                }
-                if (isUltralightC) {
-                    writeToUiAppend("The tag is a Mifare Ultralight-C tag with a storage size of " + storageSize + " bytes");
-                }
-                if (isUltralightEv1) {
-                    writeToUiAppend("The tag is a Mifare Ultralight EV1 tag with a storage size of " + storageSize + " bytes");
-                }
-
-                if (storageSize == 0) {
-                    writeToUiAppend("As the storage size is 0 the tag seems to be unknown to the app. I'm aborting, sorry.");
-                }
-/*
-                // 425245414b4d454946594f5543414e21
-                byte[] defaultKey = hexStringToByteArray("425245414b4d454946594f5543414e21"); // "BREAKMEIFYOUCAN!", 16 bytes long
-                try {
-                    authenticate(mfu, defaultKey);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-*/
-            }
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    dumpColored.setEnabled(true);
-                }
-            });
-            mfu.close();
-
-        } catch (IOException e) {
-            writeToUiAppend("IOException on connection: " + e.getMessage());
-            e.printStackTrace();
-        }
-
         writeToUiFinal(readResult);
         playDoublePing();
         setLoadingLayoutVisibility(false);
         doVibrate(getActivity());
+    }
+
+    private String removeHeading4Bytes (String data) {
+        return data.substring(4);
+    }
+
+    private String getCardIdFromTagId(byte[] tagId) {
+        // cardId
+        StringBuilder localStringBuilder = new StringBuilder();
+        byte[] arrayOfByte = tagId.clone();
+        for (int i1 = -1 + arrayOfByte.length; i1 >= 0; i1--)
+        {
+            Object[] arrayOfObject = new Object[1];
+            arrayOfObject[0] = Integer.valueOf(0xFF & arrayOfByte[i1]);
+            localStringBuilder.append(String.format("%02X", arrayOfObject));
+        }
+        BigInteger localBigInteger = new BigInteger(localStringBuilder.toString(), 16);
+        return "xx-" + localBigInteger.toString() + "-x";
     }
 
     private byte[] getTagInformation(NfcV nfcV, byte[] tagId) {
