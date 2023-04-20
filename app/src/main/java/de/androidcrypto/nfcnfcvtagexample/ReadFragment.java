@@ -483,6 +483,7 @@ public class ReadFragment extends Fragment implements NfcAdapter.ReaderCallback 
             writeToUiAppend(printData("Tag information", tagInformation));
             // analyze the data
             int numberOfBlocks = 0;
+            int totalMemorySize = 0;
             sb = new StringBuilder();
             sb.append("analyze of the tagInformation").append("\n");
             if (tagInformation.length != 15) {
@@ -499,7 +500,7 @@ public class ReadFragment extends Fragment implements NfcAdapter.ReaderCallback 
                 byte bytesInBlockByte = tagInformation[13]; // number of bytes in a block, 0x03 = 3 decimal + 1 = 4 byte in each block
                 numberOfBlocks = Integer.parseInt(String.format("%02X", numberOfBlocksByte), 16) + 1;
                 int bytesInBlock = Integer.parseInt(String.format("%02X", bytesInBlockByte), 16) + 1;
-                int totalMemory = numberOfBlocks * bytesInBlock;
+                totalMemorySize = numberOfBlocks * bytesInBlock;
                 sb.append("status bits (0x00 = OK): ").append(statusBits).append("\n");
                 sb.append("informationFlags (0x0f = DFSID, AFI, Mem size & IC ref. shown): ").append(String.format("%02X", informationFlags)).append("\n");
                 sb.append("tagUid: ").append(printData("", tagUid)).append("\n");
@@ -507,15 +508,18 @@ public class ReadFragment extends Fragment implements NfcAdapter.ReaderCallback 
                 sb.append("afi: ").append(afi).append("\n");
                 sb.append("number of blocks: ").append(numberOfBlocks).append("\n");
                 sb.append("number of bytes in a block: ").append(bytesInBlock).append("\n");
-                sb.append("total memory (bytes): ").append(totalMemory);
+                sb.append("total memory (bytes): ").append(totalMemorySize);
                 writeToUiAppend(sb.toString());
             }
 
             // now we know how many blocks we do have to read
             if (numberOfBlocks > 0) {
+                // reserve the memory
+                byte[] completeContent = new byte[totalMemorySize];
+                for (int blockNumber = 0; blockNumber < numberOfBlocks; blockNumber++) {
+                    byte[] blockRead = readOneBlock(nfcV, tagId, blockNumber);
 
-
-
+                }
 
 
             }
