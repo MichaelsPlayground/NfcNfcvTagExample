@@ -483,6 +483,7 @@ public class ReadFragment extends Fragment implements NfcAdapter.ReaderCallback 
             writeToUiAppend(printData("Tag information", tagInformation));
             // analyze the data
             int numberOfBlocks = 0;
+            int bytesInBlock = 0;
             int totalMemorySize = 0;
             sb = new StringBuilder();
             sb.append("analyze of the tagInformation").append("\n");
@@ -499,7 +500,7 @@ public class ReadFragment extends Fragment implements NfcAdapter.ReaderCallback 
                 byte numberOfBlocksByte = tagInformation[12]; // numberOfBlocks 0x33 = 51 decimal + 1 = 52 blocks
                 byte bytesInBlockByte = tagInformation[13]; // number of bytes in a block, 0x03 = 3 decimal + 1 = 4 byte in each block
                 numberOfBlocks = Integer.parseInt(String.format("%02X", numberOfBlocksByte), 16) + 1;
-                int bytesInBlock = Integer.parseInt(String.format("%02X", bytesInBlockByte), 16) + 1;
+                bytesInBlock = Integer.parseInt(String.format("%02X", bytesInBlockByte), 16) + 1;
                 totalMemorySize = numberOfBlocks * bytesInBlock;
                 sb.append("status bits (0x00 = OK): ").append(statusBits).append("\n");
                 sb.append("informationFlags (0x0f = DFSID, AFI, Mem size & IC ref. shown): ").append(String.format("%02X", informationFlags)).append("\n");
@@ -518,6 +519,15 @@ public class ReadFragment extends Fragment implements NfcAdapter.ReaderCallback 
                 byte[] completeContent = new byte[totalMemorySize];
                 for (int blockNumber = 0; blockNumber < numberOfBlocks; blockNumber++) {
                     byte[] blockRead = readOneBlock(nfcV, tagId, blockNumber);
+                    if (blockRead != null) {
+                        // copy the new bytes to responseComplete
+                        System.arraycopy(blockRead, 0, completeContent, (blockNumber * bytesInBlock), bytesInBlock);
+                        writeToUiAppend("processing block: " + blockNumber);
+                        //String dumpBlock = HexDumpOwn.prettyPrint(responseBlock, 16);
+                        //writeToUiAppend(readResult, dumpBlock);
+                    } else {
+                        writeToUiAppend("error on reading block " + blockNumber);
+                    }
 
                 }
 
@@ -797,7 +807,7 @@ Michael Roland
             byte[] response = nfcV.transceive(cmd);
             //System.out.println("blockNumber: " + blockNumber);
             //System.out.println("cmd: " + bytesToHex(cmd));
-            System.out.println("response: " + bytesToHexNpe(response));
+            System.out.println("response in block " + blockNumber + " data: " + bytesToHexNpe(response));
             byte[] responseByte = getResponseByte(response);
             if (Arrays.equals(responseByte, RESPONSE_OK)) {
                 return trimFirstByte(response);
