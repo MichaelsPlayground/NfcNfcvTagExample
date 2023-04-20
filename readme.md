@@ -1,28 +1,47 @@
-# NFC Mifare Ultralight example
+# NFC NFCV tag example
 
-This app reads and writes data to NXP's Mifare Ultralight tag. It is tested with the Ultralight C and Ultralight EV1 type so 
-I cannot guarantee that it works on the other type also.
+This app reads and writes data to a tag that uses the **NFCV technology**. There seems to be some special  
+uses cases where those tags are in use.
 
-The Mifare Ultralight family consists of 3 main subtypes:
+I am working with a **skiing pass** that was issued by (Austrian) "**Oetztal GURGL**" skiing area and 
+enables the holder to access the transportation units like ski lifts and busses.
 
-1) Mifare Ultralight: Get the datasheet MF0ICU1 here: https://www.nxp.com/docs/en/data-sheet/MF0ICU1.pdf
-2) Mifare Ultralight C: Get the datasheet here MF0ICU2: https://www.nxp.com/docs/en/data-sheet/MF0ICU2.pdf
-3) Mifare Ultralight EV1: Get the datasheet here: https://www.nxp.com/docs/en/data-sheet/MF0ULX1.pdf
+What I noticed when working with this tag is the **extended range** when the tag is detected by my Android device. 
+The reason may be simple - those tags are located in pockets in the arm of the ski jacket and the tag should be 
+discovered by the reader without pulling out the tag (remember - you are wearing thick gloves) out of the pocket. 
+So the ski driver just brings his arm near to the NFC reader and he is done.
 
-All datasheets are available in the docs folder of this repository but it is always better to get one from the origin source.
+The bad news are - I could not find any matching datasheet for the tag (maybe it is an EM4233SLIC tag): 
+https://www.emmicroelectronic.com/sites/default/files/products/datasheets/em4233slic_ds.pdf
 
-https://www.asiarfid.com/how-to-choose-rfid-mifare-chip.html
- 
-There are 5 icons in the "Bottom Navigation Bar":
+Try to find them on manufacturer's website: https://www.emmicroelectronic.com/product?title=em4&term_node_tid_depth=All
 
-1) Home: 
-2) Read: 
-3) Red Value: 
-4) Write: 
-5) Write Value: 
+Using NXP's TagInfo I could read these information's about the tag:
 
-As some parts of the software where "copy & paste" from Mifare Classic Tool (MCT) the license of this   
-app is the same as the one for MCT: 
+```plaintext
+IC manufacturer: EM Microelectronic-Marin SA
+IC type:         EM4x3x
+Application information: SKIDATA keycard
+Key number: xx-16147133535046684872-x
+Area: Obergurgl Hochgurgl
+(Probably)Valid till: 11/05/2027 (AB:28)
+
+Memory information: 208 bytes in 52 blocks, with 4 bytes per block
+
+IC information: Supported read commands, Single Block Read, Multiple Block Read, Get Multiple Block Security Status, Get System Information
+AFI supported, DSFID supported, IC reference value: 0x02, Customer ID: 0x066
+
+Technologies supported: ISO/IEC 15693-3 compatible, ISO/IEC 15693-2 compatible
+Android technology information: Tech [android.nfc.tech.NfcV, android.nfc.tech.NdefFormatable]
+Detailed protocol information:
+ID:    E0:16:24:66:21:41:50:C8
+AFI:   0x00
+DSFID: 0x02
+```
+
+Using **NFC Taginfo** there are 52 blocks of (each) 4 byte so in total the tag has a storage capacity of 208 bytes. The blocks are not blocked and writable.
+
+
 
 Icons: https://www.freeiconspng.com/images/nfc-icon
 
@@ -32,52 +51,5 @@ Nfc Simple PNG Transparent Background: https://www.freeiconspng.com/img/20581
 
 Minimum SDK is 21 (Android 5)
 
-Counter on Mifare Ultralight:
-```plaintext
-There is no counter on Mifare Ultralight (the first version type)
-```
 
-Counter on Mifare Ultralight-C:
-```plaintext
-7.5.11 Counter
-The MF0ICU2 features a 16-bit one-way counter, located at the first two bytes of page 
-29h. The default counter value is 0000h.
 
-The first1
- valid WRITE or COMPATIBILITY WRITE to address 29h can be performed
-with any value in the range between 0001h and FFFFh and corresponds to the initial
-counter value. Every consecutive WRITE command, which represents the increment, can
-contain values between 0001h and 000Fh. Upon such WRITE command and following
-mandatory RF reset, the value written to the address 29h is added to the counter content.
-After the initial write, only the lower nibble of the first data byte is used for the increment
-value (0h-Fh) and the remaining part of the data is ignored. Once the counter value
-reaches FFFFh and an increment is performed via a valid WRITE command, the
-MF0ICU2 will reply a NAK. If the sum of counter value and increment is higher than
-FFFFh, MF0ICU2 will reply a NAK and will not increment the counter.
-An increment by zero (0000h) is always possible, but does not have any impact to the
-counter value.
-It is recommended to protect the access to the counter functionality by authentication.
-```
-
-Counter on Mifare Ultralight-EV1:
-```plaintext
-8.7 Counter functionality
-The MF0ULx1 features three independent 24-bit one-way counters. These counters are
-located in a separate part of the NVM which is not directly addressable using READ,
-FAST_READ, WRITE or COMPATIBILITY_WRITE commands. The actual value can
-be retrieved by using the READ_CNT command, the counters can be incremented
-with the INCR_CNT command. The INCR_CNT command features anti-tearing
-support, thus no undefined values originating from interrupted programing cycles are
-possible. Either the value is unchanged or the correct, incremented value is correctly
-programmed into the counter. The occurrence of a tearing event can be checked using
-the CHECK_TEARING_EVENT command.
-In the initial state, the counter values are set to 000000h.
-The counters can be incremented by an arbitrary value. The incremented value is
-valid immediately and does not require a RF reset or re-activation. Once counter value
-reaches FFFFFFh and an increment is performed via a valid INCR_CNT command, the
-MF0ULx1 replies a NAK. If the sum of the addressed counter value and the increment
-value in the INCR_CNT command is higher than FFFFFFh, the MF0ULx1 replies a NAK
-and does not update the respective counter.
-An increment by zero (000000h) is always possible, but does not have any impact on the
-counter value.
-```

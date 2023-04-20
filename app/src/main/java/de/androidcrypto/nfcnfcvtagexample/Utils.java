@@ -1,4 +1,4 @@
-package de.androidcrypto.nfcmifareultralightexample;
+package de.androidcrypto.nfcnfcvtagexample;
 
 import static android.content.Context.VIBRATOR_SERVICE;
 

@@ -1,4 +1,4 @@
-package de.androidcrypto.nfcmifareultralightexample;
+package de.androidcrypto.nfcnfcvtagexample;
 
 import java.nio.charset.StandardCharsets;
 

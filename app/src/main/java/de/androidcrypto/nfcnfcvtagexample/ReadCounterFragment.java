@@ -1,8 +1,8 @@
-package de.androidcrypto.nfcmifareultralightexample;
+package de.androidcrypto.nfcnfcvtagexample;
 
-import static de.androidcrypto.nfcmifareultralightexample.Utils.bytesToHexNpe;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.doVibrate;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.hexStringToByteArray;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.bytesToHexNpe;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.doVibrate;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.hexStringToByteArray;
 
 import android.content.Context;
 import android.content.Intent;

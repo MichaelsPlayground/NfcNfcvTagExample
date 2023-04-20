@@ -1,8 +1,8 @@
-package de.androidcrypto.nfcmifareultralightexample;
+package de.androidcrypto.nfcnfcvtagexample;
 
-import static de.androidcrypto.nfcmifareultralightexample.Utils.doVibrate;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.getTimestampShort;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.printData;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.doVibrate;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.getTimestampShort;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.printData;
 
 import android.content.Intent;
 import android.media.MediaPlayer;

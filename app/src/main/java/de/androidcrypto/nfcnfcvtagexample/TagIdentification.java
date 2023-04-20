@@ -1,6 +1,4 @@
-package de.androidcrypto.nfcmifareultralightexample;
-
-import static de.androidcrypto.nfcmifareultralightexample.Utils.printData;
+package de.androidcrypto.nfcnfcvtagexample;
 
 import android.nfc.Tag;
 import android.nfc.tech.IsoDep;

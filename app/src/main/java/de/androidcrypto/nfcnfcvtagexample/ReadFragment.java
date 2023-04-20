@@ -1,9 +1,9 @@
-package de.androidcrypto.nfcmifareultralightexample;
+package de.androidcrypto.nfcnfcvtagexample;
 
-import static de.androidcrypto.nfcmifareultralightexample.Utils.bytesToHexNpe;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.doVibrate;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.hexStringToByteArray;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.printData;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.bytesToHexNpe;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.doVibrate;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.hexStringToByteArray;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.printData;
 
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +11,7 @@ import android.media.MediaPlayer;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.MifareUltralight;
+import android.nfc.tech.NfcV;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.SpannableString;
@@ -50,12 +51,17 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESedeKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 
+import nfcjlib.core.CommandAPDU;
+import nfcjlib.core.ResponseAPDU;
+import nfcjlib.core.util.Dump;
+import nfcjlib.core.util.TripleDES;
+
 /**
  * A simple {@link Fragment} subclass.
- * Use the {@link ReadFragmentOrg#newInstance} factory method to
+ * Use the {@link ReadFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class ReadFragmentOrg extends Fragment implements NfcAdapter.ReaderCallback {
+public class ReadFragment extends Fragment implements NfcAdapter.ReaderCallback {
 
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -67,7 +73,7 @@ public class ReadFragmentOrg extends Fragment implements NfcAdapter.ReaderCallba
     private String mParam1;
     private String mParam2;
 
-    public ReadFragmentOrg() {
+    public ReadFragment() {
         // Required empty public constructor
     }
 
@@ -80,8 +86,8 @@ public class ReadFragmentOrg extends Fragment implements NfcAdapter.ReaderCallba
      * @return A new instance of fragment ReceiveFragment.
      */
     // TODO: Rename and change types and number of parameters
-    public static ReadFragmentOrg newInstance(String param1, String param2) {
-        ReadFragmentOrg fragment = new ReadFragmentOrg();
+    public static ReadFragment newInstance(String param1, String param2) {
+        ReadFragment fragment = new ReadFragment();
         Bundle args = new Bundle();
         args.putString(ARG_PARAM1, param1);
         args.putString(ARG_PARAM2, param2);
@@ -442,7 +448,110 @@ public class ReadFragmentOrg extends Fragment implements NfcAdapter.ReaderCallba
             readResult.setText("");
         });
 
-        // you should have checked that this device is capable of working with Mifare Ultralight tags, otherwise you receive an exception
+        // you should have checked that this device is capable of working with NFCV tags, otherwise you receive an exception
+
+        NfcV nfcV = NfcV.get(tag);
+
+        if (nfcV == null) {
+            writeToUiAppend("The tag is not readable with NFCV classes, sorry");
+            writeToUiFinal(readResult);
+            setLoadingLayoutVisibility(false);
+            return;
+        }
+
+        // lets connect to the tag
+
+        try {
+            nfcV.connect();
+            writeToUiAppend("I'm trying to read some data from tag to get more information");
+            byte[] tagId = tag.getId();
+            String[] techList = tag.getTechList();
+            byte dsfId = nfcV.getDsfId();
+            byte responseFlags = nfcV.getResponseFlags();
+            int maxTranceiveLength = nfcV.getMaxTransceiveLength();
+            StringBuilder sb = new StringBuilder();
+            sb.append("This is an NFCV tag type").append("\n");
+            sb.append("Tag ID: ").append(bytesToHexNpe(tagId)).append("\n");
+            sb.append("Tag Techlist: ").append(Arrays.toString(techList)).append("\n");
+            sb.append("dsfId: ").append(dsfId).append("\n");
+            sb.append("responseFlags: ").append(responseFlags).append("\n");
+            sb.append("maxTranceiveLength: ").append(maxTranceiveLength);
+            writeToUiAppend(sb.toString());
+
+            // now we are running the getInformation command
+            byte[] tagInformation = getTagInformation(nfcV, tagId);
+            writeToUiAppend(printData("Tag information", tagInformation));
+            // analyze the data
+            int numberOfBlocks = 0;
+            sb = new StringBuilder();
+            sb.append("analyze of the tagInformation").append("\n");
+            if (tagInformation.length != 15) {
+                sb.append("The tagInformation has an unexpected length (not 15), aborted");
+                writeToUiAppend(sb.toString());
+            } else {
+                // example: 000fc8504121662416e00200330302
+                byte statusBits = tagInformation[0]; // 00 = ok
+                byte informationFlags = tagInformation[1]; // 0f = information flags (0x0f - DFSID, AFI, Mem size & IC ref. shown
+                byte[] tagUid = Arrays.copyOfRange(tagInformation, 2, 10); // c8504121662416e0 UID 8 bytes long
+                byte dfsidTi = tagInformation[10]; //
+                byte afi = tagInformation[11]; //
+                byte numberOfBlocksByte = tagInformation[12]; // numberOfBlocks 0x33 = 51 decimal + 1 = 52 blocks
+                byte bytesInBlockByte = tagInformation[13]; // number of bytes in a block, 0x03 = 3 decimal + 1 = 4 byte in each block
+                numberOfBlocks = Integer.parseInt(String.format("%02X", numberOfBlocksByte), 16) + 1;
+                int bytesInBlock = Integer.parseInt(String.format("%02X", bytesInBlockByte), 16) + 1;
+                int totalMemory = numberOfBlocks * bytesInBlock;
+                sb.append("status bits (0x00 = OK): ").append(statusBits).append("\n");
+                sb.append("informationFlags (0x0f = DFSID, AFI, Mem size & IC ref. shown): ").append(String.format("%02X", informationFlags)).append("\n");
+                sb.append("tagUid: ").append(printData("", tagUid)).append("\n");
+                sb.append("dfsid: ").append(dfsidTi).append("\n");
+                sb.append("afi: ").append(afi).append("\n");
+                sb.append("number of blocks: ").append(numberOfBlocks).append("\n");
+                sb.append("number of bytes in a block: ").append(bytesInBlock).append("\n");
+                sb.append("total memory (bytes): ").append(totalMemory);
+                writeToUiAppend(sb.toString());
+            }
+
+            // now we know how many blocks we do have to read
+            if (numberOfBlocks > 0) {
+
+
+
+
+
+            }
+
+
+
+
+
+
+/*
+see: https://stackoverflow.com/a/30524444/8166854
+data: 000fc8504121662416e00200330302
+      00 status bits, 0x00 = ok
+        0f information flags (0x0f - DFSID, AFI, Mem size & IC ref. shown
+          c8504121662416e0 UID
+                          02 DSFID 0x02
+                            00 AFI 0x00
+                              3303 memory size 0x33 0x03
+                                  02 IC reference 0x02
+    memory size works as follow: 0x33 + 1 is the number of blocks, 0x33 = 51 dec. = 51 + 1 = 52 blocks
+                                 0x03 + 1 is the number of bytes in a block, 0x03 = 3 dec = 3 + 1 = 4 bytes per block
+                                 total memory size: 52 block of 4 bytes each = 208 bytes user memory
+ */
+
+
+        } catch (IOException e) {
+            // nfcV.connect();
+            // throw new RuntimeException(e);
+            writeToUiAppend("IOException on connection: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+
+
+
+
 
 
         MifareUltralight mfu = MifareUltralight.get(tag);
@@ -494,11 +603,27 @@ public class ReadFragmentOrg extends Fragment implements NfcAdapter.ReaderCallba
                         (byte) 0x52, (byte) 0x42, (byte) 0x21, (byte) 0x4E,
                         (byte) 0x41, (byte) 0x43, (byte) 0x55, (byte) 0x4F,
                         (byte) 0x59, (byte) 0x46 };
+
+                /**
+                 * auth method from nfclib start
+                 */
+                reconnect(mfu);
+                writeToUiAppend("auth from nfcLib");
+                boolean authSuccessNfcLib = authenticateNfcLib(mfu, mifareULCDefaultKey);
+                writeToUiAppend("authSuccessNfcLib: " + authSuccessNfcLib);
+
+
+                /**
+                 * auth method from nfclib end
+                 */
+
+                reconnect(mfu);
                 byte[] keyFromUid = new byte[16];
                 System.arraycopy(id, 0, keyFromUid, 0 , id.length);
 
+                writeToUiAppend("auth from SO");
                 try {
-                    authenticate(mfu, keyFromUid);
+                    authenticate(mfu, mifareULCDefaultKey);
                 } catch (Exception e) {
                     //throw new RuntimeException(e);
                     // this is just an advice - if an error occurs - close the connection and reconnect the tag
@@ -627,6 +752,195 @@ Michael Roland
         playDoublePing();
         setLoadingLayoutVisibility(false);
         doVibrate(getActivity());
+    }
+
+    private byte[] getTagInformation(NfcV nfcV, byte[] tagId) {
+        // tag information
+        // https://stackoverflow.com/a/30524444/8166854
+        byte[] infoCmd = new byte[2 + tagId.length];
+        // set "addressed" flag
+        infoCmd[0] = 0x20;
+        // ISO 15693 Get System Information command byte
+        infoCmd[1] = 0x2B;
+        //adding the tag id
+        System.arraycopy(tagId, 0, infoCmd, 2, tagId.length);
+        try {
+            byte[] data = nfcV.transceive(infoCmd);
+            if (data != null) {
+                return data;
+            }
+        }
+        catch (IOException e) {
+            writeToUiAppend("IOException on getInformation command: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private byte[] readOneBlock(NfcV nfcV, byte[] tagId, int blockNumber) {
+        byte[] RESPONSE_OK = new byte[]{
+                (byte) 0x00
+        };
+        byte[] cmd = new byte[] {
+                /* FLAGS   */ (byte)0x20,
+                /* COMMAND */ (byte)0x20, // command read single block
+                /* UID     */ (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00,
+                /* OFFSET  */ (byte)0x00
+        };
+        System.arraycopy(tagId, 0, cmd, 2, 8); // copy tagId to UID
+        cmd[10] = (byte)((blockNumber) & 0x0ff); // copy block number
+        try {
+            byte[] response = nfcV.transceive(cmd);
+            //System.out.println("blockNumber: " + blockNumber);
+            //System.out.println("cmd: " + bytesToHex(cmd));
+            System.out.println("response: " + bytesToHexNpe(response));
+            byte[] responseByte = getResponseByte(response);
+            if (Arrays.equals(responseByte, RESPONSE_OK)) {
+                return trimFirstByte(response);
+            } else {
+                return null;
+            }
+        } catch (IOException e) {
+            //throw new RuntimeException(e);
+            return null;
+        }
+    }
+
+    private byte[] getResponseByte(byte[] input) {
+        return Arrays.copyOfRange(input, 0, 1);
+    }
+
+    private byte[] getResponseBytes(byte[] input) {
+        return Arrays.copyOfRange(input, 0, 2);
+    }
+
+    private byte[] trimFirstByte(byte[] input) {
+        return Arrays.copyOfRange(input, 1, (input.length));
+    }
+    private byte[] trimFirst2Bytes(byte[] input) {
+        return Arrays.copyOfRange(input, 2, (input.length));
+    }
+
+    private byte[] trimLastByte(byte[] input) {
+        return Arrays.copyOfRange(input, 0, (input.length - 1));
+    }
+
+
+    /**
+     * Mutual authentication using 3DES.
+     *
+     * @param myKey	shared secret key: K1||K2 (16 bytes)
+     * @return		{@code true} on success, {@code false} otherwise
+     */
+    public boolean authenticateNfcLib(MifareUltralight mfu, byte[] myKey)  {
+        byte[] iv1 = {0, 0, 0, 0, 0, 0, 0, 0};
+        byte[] key = new byte[24];
+
+        // prepare key: K1||K2||K1
+        System.arraycopy(myKey, 0, key, 0, 16);
+        System.arraycopy(myKey, 0, key, 16, 8);
+
+        // message exchange 1
+        byte[] auth1 = {(byte) 0xFF, (byte) 0xEF, 0x00, 0x00, 0x02, 0x1A, 0x00};
+        //byte[] r1 = transmit(auth1);
+        byte[] r1 = new byte[0];
+        try {
+            r1 = mfu.transceive(auth1);
+        } catch (IOException e) {
+            //throw new RuntimeException(e);
+            System.out.println("RuntimeException " + e.getMessage());
+            return false;
+        }
+        feedback(auth1, r1);
+        byte af = (byte) 0xAF;
+        if (r1[0] != af) {
+            return false;
+        }
+
+        // extract random B from response
+        byte[] encryptedRandB = new byte[8]; // second IV
+        System.arraycopy(r1, 1, encryptedRandB, 0, 8);
+        byte[] randB = TripleDES.decrypt(iv1, key, encryptedRandB);
+
+        // generate random A
+        byte[] randA = new byte[8];
+        SecureRandom g = new SecureRandom();
+        g.nextBytes(randA);
+
+        // concatenate/encrypt randA||randB'
+        byte[] randConcat = new byte[16];
+        System.arraycopy(randA, 0, randConcat, 0, 8);
+        System.arraycopy(randB, 1, randConcat, 8, 7);
+        System.arraycopy(randB, 0, randConcat, 15, 1);
+        byte[] encrRands = TripleDES.encrypt(encryptedRandB, key, randConcat);
+
+        // prepare second message
+        byte[] auth2 = new byte[22];
+        auth2[0] = (byte) 0xFF;
+        auth2[1] = (byte) 0xEF;
+        auth2[2] = 0x00;
+        auth2[3] = 0x00;
+        auth2[4] = 0x11;
+        auth2[5] = (byte) 0xAF;
+        System.arraycopy(encrRands, 0, auth2, 6, 16);
+
+        // message exchange 2
+        byte[] r2 = null;
+        try {
+            //r2 = transmit(auth2);
+            r2 = mfu.transceive(auth2);
+        } catch (IllegalArgumentException | IOException e) {
+            //FIXME: handle this without the exception?
+            System.out.println("wrong auth key?");
+            return false;
+        }
+        feedback(auth2, r2);
+        if (r2[0] != 0) {
+            return false;
+        }
+
+        // verify received randA
+        byte[] iv3 = new byte[8];
+        System.arraycopy(auth2, 14, iv3, 0, 8);
+        byte[] encryptedRandAp = new byte[8];
+        System.arraycopy(r2, 1, encryptedRandAp, 0, 8);
+        byte[] decryptedRandAp = TripleDES.decrypt(iv3, key, encryptedRandAp);
+        byte[] decryptedRandA = new byte[8];
+        System.arraycopy(decryptedRandAp, 0, decryptedRandA, 1, 7);
+        decryptedRandA[0] = decryptedRandAp[7];
+        for (int i = 0; i < 8; i++) {
+            if (decryptedRandA[i] != randA[i]) {
+                return false;
+            }
+        }
+        //System.out.println(String.format("randA is %s, randB is %s", Dump.hex(randA), Dump.hex(randB)));
+
+        return true;
+    }
+
+    // provide feedback to the user: can be 'disabled' by quoting prints
+    private static void feedback(CommandAPDU command, ResponseAPDU response) {
+        System.out.println(">> " + Dump.hex(command.getBytes(), true));
+        System.out.println("<< " + Dump.hex(response.getBytes(), true));
+    }
+
+    // provide feedback to the user: can be 'disabled' by quoting prints
+    private static void feedback(byte[] command, byte[] response) {
+        System.out.println(">> " + Dump.hex(command, true));
+        System.out.println("<< " + Dump.hex(response, true));
+    }
+
+    private void reconnect(MifareUltralight mfu) {
+        // this is just an advice - if an error occurs - close the connection and reconnect the tag
+        // https://stackoverflow.com/a/37047375/8166854
+        try {
+            mfu.close();
+        } catch (Exception e) {
+        }
+        try {
+            mfu.connect();
+        } catch (Exception e) {
+        }
     }
 
 

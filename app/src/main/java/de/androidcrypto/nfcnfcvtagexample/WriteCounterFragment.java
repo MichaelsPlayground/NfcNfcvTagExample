@@ -1,15 +1,12 @@
-package de.androidcrypto.nfcmifareultralightexample;
+package de.androidcrypto.nfcnfcvtagexample;
 
-import static de.androidcrypto.nfcmifareultralightexample.Utils.bytesToHexNpe;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.doVibrate;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.hexStringToByteArray;
-import static de.androidcrypto.nfcmifareultralightexample.Utils.printData;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.doVibrate;
+import static de.androidcrypto.nfcnfcvtagexample.Utils.printData;
 
 import android.content.Intent;
 import android.media.MediaPlayer;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
-import android.nfc.tech.MifareClassic;
 import android.nfc.tech.MifareUltralight;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -26,7 +23,6 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * A simple {@link Fragment} subclass.

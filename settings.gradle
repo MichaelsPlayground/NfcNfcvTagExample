@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "NfcMifareUltralightExample"
+rootProject.name = "NfcNfcvTagExample"
 include ':app'
