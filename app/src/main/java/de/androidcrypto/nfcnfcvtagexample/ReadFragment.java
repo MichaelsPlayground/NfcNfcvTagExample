@@ -584,6 +584,17 @@ data: 000fc8504121662416e00200330302
  */
 
 
+            // now lets write a block
+            // this fails as the tags are write protected
+
+            byte[] reverseTagId = tagId.clone();
+            reverseByteArray(reverseTagId);
+            byte[] newBlock = new byte[]{0x01, 0x02, 0x03, 0x04};
+            boolean writeSuccess = writeOneBlock(nfcV, reverseTagId, 10, newBlock);
+            writeToUiAppend("trying to write 4 byte to block 31: " + writeSuccess);
+
+
+
         } catch (IOException e) {
             // nfcV.connect();
             // throw new RuntimeException(e);
@@ -597,6 +608,22 @@ data: 000fc8504121662416e00200330302
         playDoublePing();
         setLoadingLayoutVisibility(false);
         doVibrate(getActivity());
+    }
+
+    public static void reverseByteArray(byte[] array) {
+        if (array == null) {
+            return;
+        }
+        int i = 0;
+        int j = array.length - 1;
+        byte tmp;
+        while (j > i) {
+            tmp = array[j];
+            array[j] = array[i];
+            array[i] = tmp;
+            j--;
+            i++;
+        }
     }
 
     private String removeHeading4Bytes (String data) {
@@ -638,6 +665,41 @@ data: 000fc8504121662416e00200330302
             e.printStackTrace();
         }
         return null;
+    }
+
+    private boolean writeOneBlock(NfcV nfcV, byte[] tagId, int blockNumber, byte[] fourByteData) {
+        // https://stackoverflow.com/a/40806550/8166854
+        // https://stackoverflow.com/a/37098162/8166854
+        byte[] RESPONSE_OK = new byte[]{
+                (byte) 0x00, (byte) 0x00
+        };
+        byte[] cmd = new byte[] {
+                /* FLAGS   */ (byte)0x60,
+                /* COMMAND */ (byte)0x21, // command write single block
+                /* UID     */ (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00,
+                /* OFFSET  */ (byte)0x00,
+                /* DATA    */ (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00
+        };
+        System.arraycopy(tagId, 0, cmd, 2, 8); // copy tagId to UID
+        cmd[10] = (byte)((blockNumber) & 0x0ff); // copy block number
+        System.arraycopy(fourByteData, 0, cmd, 11, 4); // copy 4 bytes of data
+        try {
+            byte[] response = nfcV.transceive(cmd);
+            System.out.println("response on writeOneBlock: " + bytesToHexNpe(response));
+            //System.out.println("blockNumber: " + blockNumber);
+            //System.out.println("cmd: " + bytesToHex(cmd));
+            //System.out.println("response: " + bytesToHex(response));
+            byte[] responseByte = getResponseBytes(response);
+            if (Arrays.equals(responseByte, RESPONSE_OK)) {
+                return true;
+            } else {
+                System.out.println("Error on writeOneBlock: " + bytesToHexNpe(response));
+                return false;
+            }
+        } catch (IOException e) {
+            //throw new RuntimeException(e);
+            return false;
+        }
     }
 
     private byte[] readOneBlock(NfcV nfcV, byte[] tagId, int blockNumber) {

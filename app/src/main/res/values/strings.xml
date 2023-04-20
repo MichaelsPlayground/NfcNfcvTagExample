@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">NFC NFCV Tag Example</string>
     <string name="home_description">This application reads and writes data from/to a tag with NFCV technology.</string>
-    <string name="home_fragments">There are 5 icons to click on:\n1 home = this page\n2 read data\n3 read counter = read one or more counters on the tag\n4 write data\n5 write counter = increment one or more counters</string>
+    <string name="home_fragments">There are 5 icons to click on:\n1 home = this page\n2 read data\n3 read value *1\n4 write data *1\n5 write value *1\n\n*1: These fragments are disabled</string>
     <string name="header_read">This app works with a Mifare Ultralight tag for reading</string>
     <string name="description_read">This example expects a Mifare Ultralight type tag. The tag should use only the well known keys A and B for authentication.\n\nWhen a tag is discovered the data from all records will be read.</string>
     <string name="header_read_counter">Read the counter</string>

@@ -34,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
         int itemId = item.getItemId();
         if (itemId == R.id.home) {
             selectedFragment = new HomeFragment();
-        } else if (itemId == R.id.read) {
+        } else if (itemId == R.id.read) /*{
             selectedFragment = new ReadFragment();
         } else if (itemId == R.id.read_ciphertext) {
             selectedFragment = new ReadCounterFragment();
@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (itemId == R.id.write_ciphertext) {
             selectedFragment = new WriteCounterFragment();
         }
-
+*/
         /*
         if (itemId == R.id.home) {
             selectedFragment = new HomeFragment();

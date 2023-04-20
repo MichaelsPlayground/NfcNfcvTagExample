@@ -11,7 +11,8 @@ The reason may be simple - those tags are located in pockets in the arm of the s
 discovered by the reader without pulling out the tag (remember - you are wearing thick gloves) out of the pocket. 
 So the ski driver just brings his arm near to the NFC reader and he is done.
 
-The bad news are - I could not find any matching datasheet for the tag (maybe it is an EM4233SLIC tag): 
+The bad news are - I could not find any matching datasheet for the tag (maybe it is an EM4233 tag - in a forum I found a 
+note that it is NOT the EM4233SLIC tag): 
 https://www.emmicroelectronic.com/sites/default/files/products/datasheets/em4233slic_ds.pdf
 
 Try to find them on manufacturer's website: https://www.emmicroelectronic.com/product?title=em4&term_node_tid_depth=All
@@ -41,6 +42,7 @@ DSFID: 0x02
 
 Using **NFC Taginfo** there are 52 blocks of (each) 4 byte so in total the tag has a storage capacity of 208 bytes. The blocks are not blocked and writable.
 
+As the tag is fully readable but write protected I do not provide any module that tries to write to the tag, sorry.
 
 
 Icons: https://www.freeiconspng.com/images/nfc-icon
